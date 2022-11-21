@@ -5,8 +5,36 @@
     <meta name="viewport" content="width=device-width, initial-scale=1">
     <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.0.2/dist/css/bootstrap.min.css" rel="stylesheet" integrity="sha384-EVSTQN3/azprG1Anm3QDgpJLIm9Nao0Yz1ztcQTwFspd3yD65VohhpuuCOmLASjC" crossorigin="anonymous">
   </head>
+  <style>
+    .cursor-pointer{
+      cursor: pointer;
+    }
+  </style>
   <body>
-    
+    <div style="height: 50px;" class="container-fluid px-0 px-3">
+     <div class="row">
+      <div class="col-3 px-3">
+        <div id="TG" onclick="setClickFunction(this.id)" class="py-2 rounded-pill d-flex justify-content-center align-items-center border cursor-pointer">
+          Toggle Goal
+        </div>
+      </div>
+      <div class="col-3 px-3">
+        <div id="TB" onclick="setClickFunction(this.id)" class="py-2 rounded-pill d-flex justify-content-center align-items-center border cursor-pointer">
+          Toggle Barrier
+        </div>
+      </div>
+      <div class="col-3 px-3">
+        <div id="AW" onclick="setClickFunction(this.id)" class="py-2 rounded-pill d-flex justify-content-center align-items-center border cursor-pointer">
+          Add Worm
+        </div>
+      </div>
+      <div class="col-3 px-3">
+        <div onclick="kill()" class="py-2 rounded-pill d-flex justify-content-center align-items-center border cursor-pointer">
+          Kill
+        </div>
+      </div>
+     </div>
+    </div>
     <div class="container-fluid">
         <div id="container" class="row">
 
@@ -17,12 +45,20 @@
   <script>
     const colors = ["red", "yellow", "pink", "blue", "green", "indigo", "orange", "lightblue", "black"];
 
+    const NODE_TYPE_GOAL = "G";
     const NODE_TYPE_BARRIER = "B";
     const NODE_TYPE_STEP = "S";
 
-    const height = document.documentElement.clientHeight;
-    const width = document.documentElement.clientWidth;
+    const FUNCTION_TOGGLE_GOAL = "TG";
+    const FUNCTION_TOGGLE_BARRIER = "TB";
+    const FUNCTION_ADD_WORM = "AW";
 
+    let doOnClick = FUNCTION_ADD_WORM;
+    let goalNode = null;
+
+    const height = document.documentElement.clientHeight - 50;
+    const width = document.documentElement.clientWidth;
+    
     let unitHeight = null;
     let unitWidth = null;
 
@@ -36,6 +72,19 @@
 
     const parent = document.getElementById("container");
 
+    function setClickFunction(functionType) {
+      const buttonIds = [FUNCTION_TOGGLE_GOAL, FUNCTION_TOGGLE_BARRIER, FUNCTION_ADD_WORM];
+      buttonIds.forEach((id)=>{
+        const curButton = document.getElementById(id);
+        if(id !== functionType) {
+          curButton.classList.remove("bg-primary");
+        }else{
+          curButton.classList.add("bg-primary");
+        }
+      })
+      doOnClick = functionType;
+    }
+
     function isNodeABarrier(nodeId){
       return parent.children[nodeId].dataset.type === NODE_TYPE_BARRIER;
     }
@@ -48,36 +97,54 @@
       return colors[getRandomNumber(colors.length)];
     }    
 
+    function getCoOrdinates(nodeId) {
+      const node = parent.children[nodeId].getBoundingClientRect();
+      const x = Math.floor(node.left + (node.width/2));
+      const y = Math.floor(node.top + (node.height/2));
+      return [x, y];
+    }
+
+    function getManhattanDisatnce(a, b) {
+      return (Math.abs(b[0] - a[0]) + Math.abs(b[1] - a[1]));
+    }
+
     let getNeighbors = null;
       
     const directionByIndex = {0: "U", 1: "R", 2: "D", 3: "L"};
     const indexByDirection = Object.entries(directionByIndex).reduce((acc, cur)=> ({...acc, [cur[1]]: Number(cur[0])}), {});
 
-    function selectNeighborAndDirection (neighbors, direction) {
+    function selectNeighborNearestToGoal (currentNode, neighbors) {
       let selectedNode = null;
-      let selectedDirection = direction;
-      const nodeInGivenDirection = neighbors[indexByDirection[direction]];
-
-      if(selectedDirection && nodeInGivenDirection && !isNodeABarrier(nodeInGivenDirection)){
-        selectedNode = nodeInGivenDirection;
-      }else{
-        let positions = neighbors.filter((id)=> id !== null && !isNodeABarrier(id));
-        selectedNode = positions[Math.floor(Math.random() * positions.length)];
-        selectedDirection = directionByIndex[neighbors.indexOf(selectedNode)];
+      const positions = neighbors.filter((neighborId) => neighborId !== null && parent.children[neighborId].dataset.type !== NODE_TYPE_BARRIER);
+      if(positions.length === 0){
+        alert("The purpose requires re-birth in a different part of the world");
+        return;
       }
-      return [selectedNode, selectedDirection];
+      const goalCoordinates = getCoOrdinates(goalNode);
+      const distances = positions.map((positionId)=> {
+        const positionCoordinates = getCoOrdinates(positionId);
+        return getManhattanDisatnce(goalCoordinates, positionCoordinates);
+      });
+      const minDistance = Math.min(...distances);
+      return positions[distances.indexOf(minDistance)];
     }
 
-    // let keepGoing = true;
-    let alreadyMoving = false;
-    // setTimeout(()=>{
-    //   keepGoing = false;
-    // }, 15000);
-
-    // document.ondblclick = () => keepGoing = false;
-
     function handleClick(nodeId) {
-      if(alreadyMoving){
+      if(doOnClick === FUNCTION_TOGGLE_GOAL){
+        if(parent.children[nodeId].dataset.type === NODE_TYPE_GOAL){
+          parent.children[nodeId].style.background = "white";
+          parent.children[nodeId].dataset.type = NODE_TYPE_STEP;
+          goalNode = null;
+        }else{
+          parent.children[nodeId].style.background = "green";
+          parent.children[nodeId].dataset.type = NODE_TYPE_GOAL;
+          if(goalNode){
+            parent.children[goalNode].style.background = "white";
+          }
+          goalNode = nodeId;
+        }
+        return;
+      }else if(doOnClick === FUNCTION_TOGGLE_BARRIER){
         if(parent.children[nodeId].dataset.type === NODE_TYPE_BARRIER){
           parent.children[nodeId].style.background = "white";
           parent.children[nodeId].dataset.type = NODE_TYPE_STEP;
@@ -86,32 +153,44 @@
           parent.children[nodeId].dataset.type = NODE_TYPE_BARRIER;
         }
         return;
+      }else{
+        move(nodeId);
       }
-      move(nodeId);
-      alreadyMoving = true;
     }
 
-    function move(nodeId, direction = null, color=getRandomColor()) {
-      // if(!keepGoing){
-      //   return;
-      // }
-      const neighbors = getNeighbors(Number(nodeId));
-      const selectedPosition = selectNeighborAndDirection(neighbors, direction);
-      // console.log("selected next position and direction are ", selectedPosition);
-      // console.log("-------------------------------------------------------------------");
+    let killed = false;
+    function kill() {
+      killed = true;
+    }
 
+    function move(nodeId, color=getRandomColor()) {
+      if(killed){
+        return;
+      }
+      if(goalNode === null){
+        alert("No goal, no purpose, the hell you want me to do?");
+        return;
+      }
+
+      const neighbors = getNeighbors(Number(nodeId));
+      const selectedPosition = selectNeighborNearestToGoal(nodeId, neighbors);
+
+      const direction = directionByIndex[neighbors.indexOf(selectedPosition)];
       const angleByDirection = {"U": 90, "R": 180, "D": 270, "L": 0};
 
       const img = document.createElement("img");
       img.src = "worm.png";
       img.style.width = `${wormWidth}px`;
       img.style.height = `${wormHeight}px`;
-      img.style.transform = `rotate(${angleByDirection[selectedPosition[1]]}deg)`;
+      img.style.transform = `rotate(${angleByDirection[direction]}deg)`;
       parent.children[nodeId].appendChild(img);
       setTimeout(()=>{
-        parent.children[nodeId].innerHTML = "";
-        // parent.children[nodeId].style.background = color;
-        move(selectedPosition[0], selectedPosition[1], color);
+        const child = parent.children[nodeId];
+        if(child.dataset.type !== NODE_TYPE_GOAL){
+          child.innerHTML = "";
+          parent.children[nodeId].style.background = color;
+          move(selectedPosition, color);
+        }
       }, 250);
     }
 
