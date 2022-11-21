@@ -1,0 +1,152 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1">
+    <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.0.2/dist/css/bootstrap.min.css" rel="stylesheet" integrity="sha384-EVSTQN3/azprG1Anm3QDgpJLIm9Nao0Yz1ztcQTwFspd3yD65VohhpuuCOmLASjC" crossorigin="anonymous">
+  </head>
+  <body>
+    
+    <div class="container-fluid">
+        <div id="container" class="row">
+
+        </div>
+    </div>
+  </body>
+  <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.0.2/dist/js/bootstrap.bundle.min.js" integrity="sha384-MrcW6ZMFYlzcLA8Nl+NtUVF0sA7MsXsP1UyJoMp4YLEuNSfAP+JcXn/tWtIaxVXM" crossorigin="anonymous"></script>
+  <script>
+    const colors = ["red", "yellow", "pink", "blue", "green", "indigo", "orange", "lightblue", "black"];
+
+    const NODE_TYPE_BARRIER = "B";
+    const NODE_TYPE_STEP = "S";
+
+    const height = document.documentElement.clientHeight;
+    const width = document.documentElement.clientWidth;
+
+    let unitHeight = null;
+    let unitWidth = null;
+
+    let cellHeight = null;
+    let cellWidth = null;
+
+    let wormHeight = null;
+    let wormWidth = null;
+
+    let maxXCells = null;
+
+    const parent = document.getElementById("container");
+
+    function isNodeABarrier(nodeId){
+      return parent.children[nodeId].dataset.type === NODE_TYPE_BARRIER;
+    }
+
+    function getRandomNumber(max) {
+      return Math.floor(Math.random()*max)
+    }
+
+    function getRandomColor() {
+      return colors[getRandomNumber(colors.length)];
+    }    
+
+    let getNeighbors = null;
+      
+    const directionByIndex = {0: "U", 1: "R", 2: "D", 3: "L"};
+    const indexByDirection = Object.entries(directionByIndex).reduce((acc, cur)=> ({...acc, [cur[1]]: Number(cur[0])}), {});
+
+    function selectNeighborAndDirection (neighbors, direction) {
+      let selectedNode = null;
+      let selectedDirection = direction;
+      const nodeInGivenDirection = neighbors[indexByDirection[direction]];
+
+      if(selectedDirection && nodeInGivenDirection && !isNodeABarrier(nodeInGivenDirection)){
+        selectedNode = nodeInGivenDirection;
+      }else{
+        let positions = neighbors.filter((id)=> id !== null && !isNodeABarrier(id));
+        selectedNode = positions[Math.floor(Math.random() * positions.length)];
+        selectedDirection = directionByIndex[neighbors.indexOf(selectedNode)];
+      }
+      return [selectedNode, selectedDirection];
+    }
+
+    // let keepGoing = true;
+    let alreadyMoving = false;
+    // setTimeout(()=>{
+    //   keepGoing = false;
+    // }, 15000);
+
+    // document.ondblclick = () => keepGoing = false;
+
+    function handleClick(nodeId) {
+      if(alreadyMoving){
+        if(parent.children[nodeId].dataset.type === NODE_TYPE_BARRIER){
+          parent.children[nodeId].style.background = "white";
+          parent.children[nodeId].dataset.type = NODE_TYPE_STEP;
+        }else{
+          parent.children[nodeId].style.background = "grey";
+          parent.children[nodeId].dataset.type = NODE_TYPE_BARRIER;
+        }
+        return;
+      }
+      move(nodeId);
+      alreadyMoving = true;
+    }
+
+    function move(nodeId, direction = null, color=getRandomColor()) {
+      // if(!keepGoing){
+      //   return;
+      // }
+      const neighbors = getNeighbors(Number(nodeId));
+      const selectedPosition = selectNeighborAndDirection(neighbors, direction);
+      // console.log("selected next position and direction are ", selectedPosition);
+      // console.log("-------------------------------------------------------------------");
+
+      const angleByDirection = {"U": 90, "R": 180, "D": 270, "L": 0};
+
+      const img = document.createElement("img");
+      img.src = "worm.png";
+      img.style.width = `${wormWidth}px`;
+      img.style.height = `${wormHeight}px`;
+      img.style.transform = `rotate(${angleByDirection[selectedPosition[1]]}deg)`;
+      parent.children[nodeId].appendChild(img);
+      setTimeout(()=>{
+        parent.children[nodeId].innerHTML = "";
+        // parent.children[nodeId].style.background = color;
+        move(selectedPosition[0], selectedPosition[1], color);
+      }, 250);
+    }
+
+    function populateCells(numberOfCells) {
+      const sqrt = Math.sqrt(numberOfCells);
+
+      unitHeight = Math.floor(height/sqrt);
+      unitWidth = Math.floor(width/sqrt);
+
+      cellHeight = `${unitHeight}px`;
+      cellWidth = `${unitWidth}px`;
+
+      wormHeight = Math.floor(unitHeight - (unitHeight * 0.05))
+      wormWidth = Math.floor(unitWidth - (unitWidth * 0.1))
+
+      maxXCells = Math.floor(width/unitWidth);
+
+      getNeighbors = function (nodeId) {
+        const xBound = [];
+
+        xBound.push(Math.floor(nodeId/maxXCells) * maxXCells);
+        xBound.push(((Math.ceil((nodeId/maxXCells)+0.000001)) * maxXCells) - 1);
+
+        const top = (nodeId - maxXCells) >= 0 ? (nodeId - maxXCells) : null;
+        const right = (nodeId + 1) <= xBound[1] && (nodeId+1) <= (numberOfCells-1) ? (nodeId + 1) : null;
+        const bottom = (nodeId + maxXCells) <= (numberOfCells-1) ? (nodeId + maxXCells) : null;
+        const left = (nodeId - 1) >= xBound[0] ? (nodeId - 1) : null;
+        return [top, right, bottom, left];
+      }
+
+      for (let i = 0; i < numberOfCells; i++){
+        const element = `<div data-id=${i} data-type=${NODE_TYPE_STEP} style="height: ${cellHeight}; width: ${cellWidth}; transition: background 0.3s linear; padding: 0px; background: white" onclick="handleClick(this.dataset.id)"></div>`;
+        parent.innerHTML += element;
+      }
+    }
+    populateCells(800);
+  </script>
+</html>
