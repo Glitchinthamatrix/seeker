@@ -113,9 +113,14 @@
     const directionByIndex = {0: "U", 1: "R", 2: "D", 3: "L"};
     const indexByDirection = Object.entries(directionByIndex).reduce((acc, cur)=> ({...acc, [cur[1]]: Number(cur[0])}), {});
 
-    function selectNeighborNearestToGoal (currentNode, neighbors) {
+    function selectNeighborNearestToGoal (currentNode, previousNode, neighbors) {
+      console.log("getting next node for ", currentNode, ", previous node was ", previousNode);
       let selectedNode = null;
-      const positions = neighbors.filter((neighborId) => neighborId !== null && parent.children[neighborId].dataset.type !== NODE_TYPE_BARRIER);
+      const positions = neighbors.filter((neighborId) => neighborId !== null && neighborId !== previousNode && parent.children[neighborId].dataset.type !== NODE_TYPE_BARRIER);
+      console.log("positions without the previous node ", positions);
+      if(positions.length === 0){
+        return previousNode;
+      }
       if(positions.length === 0){
         alert("The purpose requires re-birth in a different part of the world");
         return;
@@ -126,6 +131,7 @@
         return getManhattanDisatnce(goalCoordinates, positionCoordinates);
       });
       const minDistance = Math.min(...distances);
+      console.log("chose node ", positions[distances.indexOf(minDistance)]);
       return positions[distances.indexOf(minDistance)];
     }
 
@@ -163,7 +169,8 @@
       killed = true;
     }
 
-    function move(nodeId, color=getRandomColor()) {
+    function move(nodeId, previousNode = null, color=getRandomColor()) {
+      console.log("on node", nodeId, ", previous node was ", previousNode);
       if(killed){
         return;
       }
@@ -173,10 +180,11 @@
       }
 
       const neighbors = getNeighbors(Number(nodeId));
-      const selectedPosition = selectNeighborNearestToGoal(nodeId, neighbors);
+      const selectedPosition = selectNeighborNearestToGoal(nodeId, previousNode, neighbors);
 
       const direction = directionByIndex[neighbors.indexOf(selectedPosition)];
       const angleByDirection = {"U": 90, "R": 180, "D": 270, "L": 0};
+      console.log("-------------------------------------------");
 
       const img = document.createElement("img");
       img.src = "worm.png";
@@ -189,12 +197,12 @@
         if(child.dataset.type !== NODE_TYPE_GOAL){
           child.innerHTML = "";
           parent.children[nodeId].style.background = color;
-          move(selectedPosition, color);
+          move(selectedPosition, nodeId, color);
         }
       }, 250);
     }
 
-    function populateCells(numberOfCells) {
+    function populateCells(numberOfCells, addBarriers = false, barrierPercentage = 20) {
       const sqrt = Math.sqrt(numberOfCells);
 
       unitHeight = Math.floor(height/sqrt);
@@ -222,10 +230,14 @@
       }
 
       for (let i = 0; i < numberOfCells; i++){
-        const element = `<div data-id=${i} data-type=${NODE_TYPE_STEP} style="height: ${cellHeight}; width: ${cellWidth}; transition: background 0.3s linear; padding: 0px; background: white" onclick="handleClick(this.dataset.id)"></div>`;
+        let element = `<div data-id=${i} data-type=${NODE_TYPE_STEP} style="height: ${cellHeight}; width: ${cellWidth}; transition: background 0.3s linear; padding: 0px; background: white" onclick="handleClick(this.dataset.id)">${i}</div>`;
+        if(addBarriers){
+          const isABarrier = Math.random() * 100;
+          element = `<div data-id=${i} data-type=${isABarrier > barrierPercentage ? NODE_TYPE_STEP : NODE_TYPE_BARRIER} style="height: ${cellHeight}; width: ${cellWidth}; transition: background 0.3s linear; padding: 0px; background: ${isABarrier > barrierPercentage ? 'white' : 'grey'}" onclick="handleClick(this.dataset.id)">${i}</div>`;
+        }
         parent.innerHTML += element;
       }
     }
-    populateCells(800);
+    populateCells(800, true);
   </script>
 </html>
