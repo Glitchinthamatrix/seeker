@@ -70,6 +70,8 @@
 
     let maxXCells = null;
 
+    const alreadyVisitedNodes = {};
+
     const parent = document.getElementById("container");
 
     function setClickFunction(functionType) {
@@ -114,25 +116,32 @@
     const indexByDirection = Object.entries(directionByIndex).reduce((acc, cur)=> ({...acc, [cur[1]]: Number(cur[0])}), {});
 
     function selectNeighborNearestToGoal (currentNode, previousNode, neighbors) {
-      console.log("getting next node for ", currentNode, ", previous node was ", previousNode);
+      let positions = neighbors.filter((neighborId)=> neighborId !== null && parent.children[neighborId].dataset.type !== NODE_TYPE_BARRIER);
       let selectedNode = null;
-      const positions = neighbors.filter((neighborId) => neighborId !== null && neighborId !== previousNode && parent.children[neighborId].dataset.type !== NODE_TYPE_BARRIER);
-      console.log("positions without the previous node ", positions);
       if(positions.length === 0){
-        return previousNode;
+        return null;
       }
       if(positions.length === 0){
-        alert("The purpose requires re-birth in a different part of the world");
-        return;
+        return null;
       }
       const goalCoordinates = getCoOrdinates(goalNode);
-      const distances = positions.map((positionId)=> {
+      let positionAndDistance = positions.map((positionId)=> {
         const positionCoordinates = getCoOrdinates(positionId);
-        return getManhattanDisatnce(goalCoordinates, positionCoordinates);
+        return [positionId, getManhattanDisatnce(goalCoordinates, positionCoordinates)]
       });
-      const minDistance = Math.min(...distances);
-      console.log("chose node ", positions[distances.indexOf(minDistance)]);
-      return positions[distances.indexOf(minDistance)];
+      positionAndDistance = positionAndDistance.sort((a, b)=> a[1] - b[1]);
+      positionAndDistance = positionAndDistance.sort((a, b)=> {
+        if(alreadyVisitedNodes[a[0]] === undefined && alreadyVisitedNodes[b[0]] === undefined){
+          return 0;
+        }else if(alreadyVisitedNodes[a[0]] === undefined){
+          return -1;
+        }else if(alreadyVisitedNodes[b[0]] === undefined){
+          return 1;
+        } else {
+          return alreadyVisitedNodes[a[0]] - alreadyVisitedNodes[b[0]];
+        }
+      });
+      return positionAndDistance[0][0];
     }
 
     function handleClick(nodeId) {
@@ -167,10 +176,13 @@
     let killed = false;
     function kill() {
       killed = true;
+      alreadyVisitedNodes = {};
+      setTimeout(()=>{
+        killed = false;
+      }, 3000)
     }
 
     function move(nodeId, previousNode = null, color=getRandomColor()) {
-      console.log("on node", nodeId, ", previous node was ", previousNode);
       if(killed){
         return;
       }
@@ -181,10 +193,13 @@
 
       const neighbors = getNeighbors(Number(nodeId));
       const selectedPosition = selectNeighborNearestToGoal(nodeId, previousNode, neighbors);
+      if(!selectedPosition){
+        alert("No way found");
+        return;
+      }
 
       const direction = directionByIndex[neighbors.indexOf(selectedPosition)];
       const angleByDirection = {"U": 90, "R": 180, "D": 270, "L": 0};
-      console.log("-------------------------------------------");
 
       const img = document.createElement("img");
       img.src = "worm.png";
@@ -192,6 +207,12 @@
       img.style.height = `${wormHeight}px`;
       img.style.transform = `rotate(${angleByDirection[direction]}deg)`;
       parent.children[nodeId].appendChild(img);
+      if(alreadyVisitedNodes[nodeId]){
+        alreadyVisitedNodes[nodeId] += 1
+      }else{
+        alreadyVisitedNodes[nodeId] = 1;
+      }
+
       setTimeout(()=>{
         const child = parent.children[nodeId];
         if(child.dataset.type !== NODE_TYPE_GOAL){
@@ -238,6 +259,6 @@
         parent.innerHTML += element;
       }
     }
-    populateCells(800, true);
+    populateCells(800, true, 20);
   </script>
 </html>
