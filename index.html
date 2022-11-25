@@ -184,7 +184,6 @@
         const positionCoordinates = getCoOrdinates(positionId);
         return [positionId, getManhattanDisatnce(goalCoordinates, positionCoordinates)]
       });
-      positionAndDistance = positionAndDistance.sort((a, b)=> a[1] - b[1]);
       positionAndDistance = positionAndDistance.sort((a, b)=> {
         if(alreadyVisitedNodes[a[0]] === undefined && alreadyVisitedNodes[b[0]] === undefined){
           return 0;
@@ -196,6 +195,7 @@
           return alreadyVisitedNodes[a[0]] - alreadyVisitedNodes[b[0]];
         }
       });
+      positionAndDistance = positionAndDistance.sort((a, b)=> a[1] - b[1]);
       return positionAndDistance[0][0];
     }
 
