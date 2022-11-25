@@ -13,25 +13,33 @@
   <body>
     <div style="height: 50px;" class="container-fluid px-0 px-3">
      <div class="row">
-      <div class="col-3 px-3">
+      <div class="col-2 px-3">
         <div id="TG" onclick="setClickFunction(this.id)" class="py-2 rounded-pill d-flex justify-content-center align-items-center border cursor-pointer">
           Toggle Goal
         </div>
       </div>
-      <div class="col-3 px-3">
+      <div class="col-2 px-3">
         <div id="TB" onclick="setClickFunction(this.id)" class="py-2 rounded-pill d-flex justify-content-center align-items-center border cursor-pointer">
           Toggle Barrier
         </div>
       </div>
-      <div class="col-3 px-3">
+      <div class="col-2 px-3">
         <div id="AW" onclick="setClickFunction(this.id)" class="py-2 rounded-pill d-flex justify-content-center align-items-center border cursor-pointer">
           Add Worm
         </div>
       </div>
-      <div class="col-3 px-3">
+      <div class="col-1 px-3">
         <div onclick="kill()" class="py-2 rounded-pill d-flex justify-content-center align-items-center border cursor-pointer">
-          Kill
+          Kill All
         </div>
+      </div>
+      <div class="col-2 px-3">
+        <div onclick="populateCells()" class="py-2 rounded-pill d-flex justify-content-center align-items-center border cursor-pointer">
+          Change terrain
+        </div>
+      </div>
+      <div class="col-3 px-3 d-flex justify-content-end align-items-center">
+        <img data-bs-toggle="modal" data-bs-target="#settings" style="height: 25px; cursor: pointer;" src="./settings.png"/>
       </div>
      </div>
     </div>
@@ -40,6 +48,46 @@
 
         </div>
     </div>
+
+    <!-- setting -->
+    <div class="modal fade" id="settings" tabindex="-1" aria-labelledby="exampleModalLabel" aria-hidden="true">
+      <div class="modal-dialog">
+        <div class="modal-content">
+          <div class="modal-header">
+            <h1 class="modal-title fs-5" id="exampleModalLabel">Settings</h1>
+            <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
+          </div>
+          <div class="modal-body">
+            <input type="number" oninput="cellCount = this.value" class="form-control py-2" placeholder="number of cells, default is 400"/>
+            <div class="mb-2 text-warning">Note: Adding too many cells might slow your browser down a little</div>
+            <div class="d-flex align-items-center">
+              <input onchange="isStepCountVisible = !isStepCountVisible" type="checkbox" class="form-check-input"/>
+              <div class="px-2">show step count</div>
+            </div>
+            <div class="d-flex align-items-center">
+              <input onchange="isPathHighlighted = !isPathHighlighted" type="checkbox" class="form-check-input"/>
+              <div class="px-2">Highlight path</div>
+            </div>
+            <div class="d-flex align-items-center py-2 border-top mt-4">
+              <input onchange="areBarriersAdded = !areBarriersAdded" type="checkbox" class="form-check-input"/>
+              <hr/>
+              <div class="px-2">
+                Add barriers
+              </div>
+            </div>
+            <input type="number" oninput="barrierPercentage = this.value" class="form-control py-2" placeholder="difficulty(0-100), default is 10" max="100" min="0"/>
+            <div class="p-2">
+              Save, to see your changes
+            </div>
+          </div>
+          <div class="modal-footer">
+            <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Close</button>
+            <button onclick="populateCells()" type="button"data-bs-dismiss="modal" class="btn btn-primary">Save</button>
+          </div>
+        </div>
+      </div>
+    </div>
+    <!-- settings end -->
   </body>
   <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.0.2/dist/js/bootstrap.bundle.min.js" integrity="sha384-MrcW6ZMFYlzcLA8Nl+NtUVF0sA7MsXsP1UyJoMp4YLEuNSfAP+JcXn/tWtIaxVXM" crossorigin="anonymous"></script>
   <script>
@@ -56,6 +104,13 @@
     let doOnClick = FUNCTION_ADD_WORM;
     let goalNode = null;
 
+    let areBarriersAdded = false;
+    let barrierPercentage = 10;
+    let cellCount = 400;
+
+    let isStepCountVisible = false;
+    let isPathHighlighted = false;
+
     const height = document.documentElement.clientHeight - 50;
     const width = document.documentElement.clientWidth;
     
@@ -70,7 +125,7 @@
 
     let maxXCells = null;
 
-    const alreadyVisitedNodes = {};
+    let alreadyVisitedNodes = {};
 
     const parent = document.getElementById("container");
 
@@ -169,7 +224,7 @@
         }
         return;
       }else{
-        move(nodeId);
+        move({nodeId});
       }
     }
 
@@ -182,12 +237,12 @@
       }, 3000)
     }
 
-    function move(nodeId, previousNode = null, color=getRandomColor()) {
+    function move({nodeId, previousNode = null, backgroundColor = undefined, stepCountColor = undefined}) {
       if(killed){
         return;
       }
       if(goalNode === null){
-        alert("No goal, no purpose, the hell you want me to do?");
+        alert("Worm has no purpose yet, worm is a teenager, please set a goal");
         return;
       }
 
@@ -216,15 +271,31 @@
       setTimeout(()=>{
         const child = parent.children[nodeId];
         if(child.dataset.type !== NODE_TYPE_GOAL){
-          child.innerHTML = "";
-          parent.children[nodeId].style.background = color;
-          move(selectedPosition, nodeId, color);
+          if(isPathHighlighted && backgroundColor === undefined){
+            console.log("calculating path color");
+            backgroundColor = getRandomColor();
+          }
+
+          if(isStepCountVisible && stepCountColor === undefined){
+            console.log("calculating step count color")
+            if(backgroundColor){
+              const bgIndex = colors.indexOf(backgroundColor);
+              stepCountColor = bgIndex === colors.length - 1 || bgIndex === 0 ? colors[Math.floor(colors.length/2)] : colors[bgIndex+1];
+            }else{
+              stepCountColor = getRandomColor();
+            }
+          }
+          child.innerHTML = isStepCountVisible && alreadyVisitedNodes[nodeId] ? `<p style="color: ${stepCountColor}">${alreadyVisitedNodes[nodeId]}</p>`:"";
+          parent.children[nodeId].style.background = backgroundColor;
+          move({nodeId: selectedPosition, previousNode: nodeId, backgroundColor, stepCountColor});
         }
       }, 250);
     }
 
-    function populateCells(numberOfCells, addBarriers = false, barrierPercentage = 20) {
-      const sqrt = Math.sqrt(numberOfCells);
+    function populateCells() {
+      parent.innerHTML = "";
+      console.log("populating, number os cells: ", cellCount, " need barries? ", areBarriersAdded, ", barrier percentage: ", barrierPercentage)
+      const sqrt = Math.sqrt(cellCount);
 
       unitHeight = Math.floor(height/sqrt);
       unitWidth = Math.floor(width/sqrt);
@@ -244,21 +315,20 @@
         xBound.push(((Math.ceil((nodeId/maxXCells)+0.000001)) * maxXCells) - 1);
 
         const top = (nodeId - maxXCells) >= 0 ? (nodeId - maxXCells) : null;
-        const right = (nodeId + 1) <= xBound[1] && (nodeId+1) <= (numberOfCells-1) ? (nodeId + 1) : null;
-        const bottom = (nodeId + maxXCells) <= (numberOfCells-1) ? (nodeId + maxXCells) : null;
+        const right = (nodeId + 1) <= xBound[1] && (nodeId+1) <= (cellCount-1) ? (nodeId + 1) : null;
+        const bottom = (nodeId + maxXCells) <= (cellCount-1) ? (nodeId + maxXCells) : null;
         const left = (nodeId - 1) >= xBound[0] ? (nodeId - 1) : null;
         return [top, right, bottom, left];
       }
-
-      for (let i = 0; i < numberOfCells; i++){
-        let element = `<div data-id=${i} data-type=${NODE_TYPE_STEP} style="height: ${cellHeight}; width: ${cellWidth}; transition: background 0.3s linear; padding: 0px; background: white" onclick="handleClick(this.dataset.id)">${i}</div>`;
-        if(addBarriers){
+      for (let i = 0; i < cellCount; i++){
+        let element = `<div data-id=${i} data-type=${NODE_TYPE_STEP} style="height: ${cellHeight}; width: ${cellWidth}; transition: background 0.3s linear; padding: 0px; background: white" onclick="handleClick(this.dataset.id)"></div>`;
+        if(areBarriersAdded && barrierPercentage){
           const isABarrier = Math.random() * 100;
-          element = `<div data-id=${i} data-type=${isABarrier > barrierPercentage ? NODE_TYPE_STEP : NODE_TYPE_BARRIER} style="height: ${cellHeight}; width: ${cellWidth}; transition: background 0.3s linear; padding: 0px; background: ${isABarrier > barrierPercentage ? 'white' : 'grey'}" onclick="handleClick(this.dataset.id)">${i}</div>`;
+          element = `<div data-id=${i} data-type=${isABarrier > barrierPercentage ? NODE_TYPE_STEP : NODE_TYPE_BARRIER} style="height: ${cellHeight}; width: ${cellWidth}; transition: background 0.3s linear; padding: 0px; background: ${isABarrier > barrierPercentage ? 'white' : 'grey'}" class="text-center" onclick="handleClick(this.dataset.id)"></div>`;
         }
         parent.innerHTML += element;
       }
     }
-    populateCells(800, true, 20);
+    populateCells();
   </script>
 </html>
